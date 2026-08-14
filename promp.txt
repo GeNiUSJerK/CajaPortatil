@@ -1,0 +1,100 @@
+Actúa como un Desarrollador Full-Stack Senior experto en Python, Django y diseño UI/UX. Tu misión es generar una aplicación web completa, responsiva y lista para producción de un Sistema de Punto de Venta (POS) e Inventario para una tienda de ropa de marca, optimizada para ejecutarse en local con SQLite y desplegarse en PythonAnywhere.
+
+---
+
+### 1. Requerimientos de Diseño y Estética (Obligatorio)
+- **Temática Visual:** Estilo *Aesthetic Kawaii* en tonos **Rosa Pastel** (Rose, Pink, Fuchsia suave) con temática de **Gatitos** (Cat Theme 🐱 🐾).
+- **Detalles UI/UX:**
+  - Fondos suaves (`bg-pink-50`, `bg-rose-100/40`), tarjetas con bordes extra redondeados (`rounded-3xl`), sombras suaves rosadas (`shadow-lg shadow-pink-200/60`).
+  - Barra de navegación superior con pestañas accesibles, iconos temáticos (🐾, 🐱, 🎀, 📦) y badges visuales.
+  - Diseño 100% responsivo: adaptado para pantalla de PC (escritorio amplio) y optimizado para pantallas táctiles de celular (botones grandes, accesibles con el pulgar).
+  - Web Audio API integrada: emite un sonido *beep* suave de confirmación al escanear exitosamente y un efecto de tintineo alegre al concretar una venta.
+
+---
+
+### 2. Soporte Dual de Escaneo (PC + Celular)
+El sistema debe funcionar indistintamente en PC y Celular en los módulos que requieran lectura de códigos:
+1. **Modo PC (Pistola USB):** Campo de texto con auto-enfoque permanente que captura los caracteres enviados por la lectora y el salto de línea `Enter`.
+2. **Modo Celular (Cámara Trasera):** Botón flotante o visible *"📷 Escanear con Cámara 🐱"* que abre un modal con el visor de `html5-qrcode` (usando `{ facingMode: "environment" }`), detecta el código 1D/QR automáticamente, emite el pitido sonoro y procesa la acción correspondiente según el apartado activo.
+
+---
+
+### 3. Arquitectura de los 3 Apartados del Sistema
+
+La interfaz debe estructurarse en **3 módulos o pestañas principales** de fácil acceso en la barra de navegación:
+
+#### APARTADO 1: Ingreso Rápido de Inventario (📦 Cargar Ropa)
+- **Objetivo:** Carga ágil de nuevas prendas o actualización de stock.
+- **Flujo:**
+  - Campo principal para escanear el código de barras (con pistola o cámara).
+  - Si el código ya existe: carga automáticamente los datos existentes y resalta el campo "Sumar Stock" o "Precio".
+  - Si el código es nuevo: permite rellenar de inmediato:
+    - Nombre / Descripción de la prenda.
+    - Marca (ej. Guess, Tommy, Calvin Klein, etc.).
+    - Talla (XS, S, M, L, XL, etc.) y Color (opcional).
+    - Precio de Costo.
+    - Precio de Venta.
+    - Cantidad / Stock inicial.
+  - Botón principal: **"🐾 Guardar Prenda"**.
+  - Al guardar: muestra alerta estética de éxito, limpia el formulario y vuelve a colocar el cursor en el campo de escaneo para la siguiente prenda sin tocar el ratón.
+
+#### APARTADO 2: Punto de Venta y Caja Completa (🛍️ Vender / Cobrar)
+- **Objetivo:** Módulo de cobro rápido y cálculo de vuelto.
+- **Flujo:**
+  - Al escanear (pistola o cámara), busca la prenda vía API interna y la añade al carrito en pantalla.
+  - **Tabla / Lista del Carrito:** Muestra nombre, talla, precio unitario, botones `+` / `-` para modificar cantidad, subtotal y botón para eliminar ítem.
+  - **Panel de Cobro:**
+    - Visualización del **Total a Pagar** en números grandes y destacados.
+    - Selector de método de pago: **Efectivo** vs **Transferencia / Débito**.
+    - Si es Efectivo: campo para ingresar el **Monto Recibido**. Cálculo automático del **Vuelto** en tiempo real en color verde/rosa contrastado.
+  - Botón principal: **"🐱 Confirmar y Cobrar Venta"**:
+    - Ejecuta una transacción atómica en Django (`@transaction.atomic`), valida que haya stock suficiente, descuenta las unidades, registra la venta con su detalle y limpia la caja para el siguiente cliente.
+
+#### APARTADO 3: Visor de Inventario Simple (📋 Ver Stock)
+- **Objetivo:** Consulta rápida del catálogo completo sin complejidades.
+- **Flujo:**
+  - Buscador en vivo (filtra al escribir por nombre, marca o código de barras).
+  - Visualización en tarjetas adaptables para móvil y tabla limpia para PC.
+  - Muestra: Código, Prenda, Marca, Talla, Precio Venta y Stock disponible.
+  - Indicadores visuales de stock: Verde (disponible), Amarillo (últimas unidades $\le 2$), Rojo (agotado).
+  - Botón de acción rápida en cada ítem para editar precio o reponer unidades rápidamente.
+  - Botón para **Descargar Respaldo de Base de Datos (`db.sqlite3`)** en un solo clic.
+
+---
+
+### 4. Modelos de Datos en Django (`models.py`)
+
+Crea la app `tienda_pos` con los siguientes modelos:
+1. `Producto`:
+   - `codigo_barras` (CharField, unique=True, db_index=True)
+   - `nombre` (CharField, max_length=150)
+   - `marca` (CharField, max_length=100, blank=True, null=True)
+   - `talla` (CharField, max_length=20, blank=True, null=True)
+   - `precio_costo` (PositiveIntegerField)
+   - `precio_venta` (PositiveIntegerField)
+   - `stock` (IntegerField, default=1)
+   - `actualizado_en` (DateTimeField, auto_now=True)
+
+2. `Venta`:
+   - `fecha` (DateTimeField, auto_now_add=True)
+   - `total` (PositiveIntegerField)
+   - `metodo_pago` (CharField: 'EFECTIVO', 'TRANSFERENCIA')
+   - `monto_recibido` (PositiveIntegerField, default=0)
+   - `vuelto` (PositiveIntegerField, default=0)
+
+3. `DetalleVenta`:
+   - `venta` (ForeignKey a Venta, on_delete=CASCADE, related_name='detalles')
+   - `producto` (ForeignKey a Producto, on_delete=PROTECT)
+   - `cantidad` (PositiveIntegerField, default=1)
+   - `precio_unitario` (PositiveIntegerField)
+   - `subtotal` (PositiveIntegerField)
+
+---
+
+### 5. Requerimientos de Código y Estructura
+Por favor, genera el código fuente completo, modular y listo para ejecutar, sin placeholders ni partes truncadas:
+1. `models.py`
+2. `views.py` (con endpoints API JSON para: buscar producto por código, registrar/actualizar producto, procesar venta con transacción atómica, y listar inventario).
+3. `urls.py`
+4. `templates/index.html` (interfaz SPA con navegación fluida entre los 3 apartados, TailwindCSS, script con `html5-qrcode`, lógica del carrito, cálculo de vuelto y gestión de eventos de escaneo para pistola y cámara).
+5. `admin.py` configurado con estilo y filtros.

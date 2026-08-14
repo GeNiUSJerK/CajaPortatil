@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS Kawaii 🐱🎀</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html5-qrcode CDN -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #fdf2f8; /* bg-pink-50 */
+            background-image: radial-gradient(#fce7f3 20%, transparent 20%), radial-gradient(#fce7f3 20%, transparent 20%);
+            background-position: 0 0, 10px 10px;
+            background-size: 20px 20px;
+        }
+        .tab-btn.active {
+            background-color: #fbcfe8; /* pink-200 */
+            color: #be185d; /* pink-700 */
+            border-bottom: 4px solid #f472b6; /* pink-400 */
+        }
+        .kawaii-shadow {
+            box-shadow: 0 10px 25px -5px rgba(251, 207, 232, 0.6), 0 8px 10px -6px rgba(251, 207, 232, 0.4);
+        }
+        /* Custom scrollbar for tables/lists */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #fdf2f8; 
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #fbcfe8; 
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #f9a8d4; 
+        }
+        /* Scanner modal */
+        #qr-reader {
+            width: 100%;
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 4px solid #fbcfe8;
+        }
+    </style>
+</head>
+<body class="text-gray-800 min-h-screen pb-20 md:pb-0">
+
+    <!-- Header / Navbar -->
+    <header class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-pink-200 kawaii-shadow">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0 flex items-center gap-2">
+                    <span class="text-2xl">🐱</span>
+                    <span class="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-rose-400 text-xl tracking-tight">KittenPOS</span>
+                </div>
+                <nav class="hidden md:flex space-x-2">
+                    <button onclick="switchTab('pos')" id="tab-pos" class="tab-btn active px-4 py-2 rounded-t-xl font-bold text-gray-500 hover:bg-pink-50 transition"><i class="fa-solid fa-cash-register mr-1"></i> 🛍️ Vender</button>
+                    <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-btn px-4 py-2 rounded-t-xl font-bold text-gray-500 hover:bg-pink-50 transition"><i class="fa-solid fa-box mr-1"></i> 📦 Cargar Ropa</button>
+                    <button onclick="switchTab('stock')" id="tab-stock" class="tab-btn px-4 py-2 rounded-t-xl font-bold text-gray-500 hover:bg-pink-50 transition"><i class="fa-solid fa-list mr-1"></i> 📋 Ver Stock</button>
+                    <button onclick="switchTab('history')" id="tab-history" class="tab-btn px-4 py-2 rounded-t-xl font-bold text-gray-500 hover:bg-pink-50 transition"><i class="fa-solid fa-chart-bar mr-1"></i> 📊 Historial</button>
+                </nav>
+                <div class="flex items-center">
+                    <button onclick="window.location.href='/db/descargar/'" class="text-pink-400 hover:text-pink-600 p-2" title="Descargar Respaldo DB"><i class="fa-solid fa-download"></i></button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Bottom Navigation (Mobile) -->
+    <div class="md:hidden fixed bottom-0 w-full bg-white border-t border-pink-200 kawaii-shadow z-50 flex justify-around p-2 pb-safe">
+        <button onclick="switchTab('pos')" id="mob-tab-pos" class="flex flex-col items-center p-2 text-pink-600"><i class="fa-solid fa-cash-register text-xl"></i><span class="text-xs font-bold mt-1">Vender</span></button>
+        <button onclick="switchTab('inventory')" id="mob-tab-inventory" class="flex flex-col items-center p-2 text-gray-400"><i class="fa-solid fa-box text-xl"></i><span class="text-xs font-bold mt-1">Cargar</span></button>
+        <button onclick="switchTab('stock')" id="mob-tab-stock" class="flex flex-col items-center p-2 text-gray-400"><i class="fa-solid fa-list text-xl"></i><span class="text-xs font-bold mt-1">Stock</span></button>
+        <button onclick="switchTab('history')" id="mob-tab-history" class="flex flex-col items-center p-2 text-gray-400"><i class="fa-solid fa-chart-bar text-xl"></i><span class="text-xs font-bold mt-1">Historial</span></button>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- ALERT TOAST -->
+        <div id="toast" class="fixed top-20 right-4 bg-white border-2 border-pink-300 text-pink-700 px-4 py-3 rounded-2xl kawaii-shadow hidden z-50 transform transition-all duration-300 translate-x-full">
+            <div class="flex items-center gap-3">
+                <span id="toast-icon" class="text-2xl">✨</span>
+                <div>
+                    <p id="toast-title" class="font-bold">Éxito</p>
+                    <p id="toast-msg" class="text-sm">Operación realizada.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- CAMERA MODAL -->
+        <div id="camera-modal" class="fixed inset-0 bg-black/60 z-[100] hidden flex-col items-center justify-center p-4 backdrop-blur-sm">
+            <div class="bg-white p-4 rounded-3xl w-full max-w-md flex flex-col items-center kawaii-shadow">
+                <h3 class="font-bold text-xl mb-4 text-pink-600">📷 Escanear con Cámara 🐱</h3>
+                <div id="qr-reader"></div>
+                <button onclick="closeCamera()" class="mt-6 w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 rounded-2xl transition">Cerrar</button>
+            </div>
+        </div>
+
+        <!-- TAB 1: POS (Vender) -->
+        <div id="view-pos" class="tab-view block animate-fade-in-up">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Izquierda: Escáner y Carrito -->
+                <div class="lg:col-span-2 flex flex-col gap-4">
+                    <div class="bg-white p-5 rounded-3xl kawaii-shadow border border-pink-100 flex items-center gap-3">
+                        <div class="relative flex-grow">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-pink-400">
+                                <i class="fa-solid fa-barcode"></i>
+                            </span>
+                            <input type="text" id="pos-scan" class="w-full bg-pink-50 border-2 border-pink-200 text-gray-900 rounded-2xl focus:ring-pink-500 focus:border-pink-500 block pl-12 p-3 text-lg font-bold" placeholder="Escanea o escribe código y presiona Enter..." autofocus autocomplete="off">
+                        </div>
+                        <button onclick="openCamera('pos')" class="bg-pink-400 hover:bg-pink-500 text-white p-3 rounded-2xl shadow-md transition-transform active:scale-95">
+                            <i class="fa-solid fa-camera text-xl"></i>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-3xl kawaii-shadow border border-pink-100 flex-grow overflow-hidden flex flex-col min-h-[300px]">
+                        <div class="bg-pink-100/50 p-3 border-b border-pink-100 text-pink-800 font-bold flex justify-between">
+                            <span>Carrito de Compras 🛒</span>
+                            <button onclick="limpiarCarrito()" class="text-xs bg-white text-pink-500 px-2 py-1 rounded-lg shadow-sm">Vaciar</button>
+                        </div>
+                        <div class="overflow-y-auto p-2 flex-grow">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="text-xs text-gray-400 border-b border-gray-100">
+                                        <th class="p-2">Producto</th>
+                                        <th class="p-2 w-24 text-center">Cant.</th>
+                                        <th class="p-2 text-right">Subtotal</th>
+                                        <th class="p-2 w-10"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="carrito-body">
+                                    <!-- Items carrito -->
+                                    <tr id="empty-cart-msg"><td colspan="4" class="text-center py-10 text-gray-400 italic">No hay prendas en el carrito 🐾</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Derecha: Panel de Cobro -->
+                <div class="bg-white p-6 rounded-3xl kawaii-shadow border border-pink-100 flex flex-col gap-4">
+                    <h2 class="text-lg font-bold text-gray-700 text-center border-b pb-2">Resumen de Venta</h2>
+                    
+                    <div class="bg-gradient-to-br from-pink-400 to-rose-400 rounded-2xl p-6 text-white text-center shadow-inner">
+                        <p class="text-pink-100 font-semibold mb-1">Total a Pagar</p>
+                        <p class="text-5xl font-extrabold tracking-tight">$<span id="pos-total">0</span></p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Método de Pago</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="btn-efectivo" onclick="setMetodoPago('EFECTIVO')" class="border-2 border-pink-400 bg-pink-50 text-pink-700 font-bold py-2 rounded-xl transition">💵 Efectivo</button>
+                            <button id="btn-transferencia" onclick="setMetodoPago('TRANSFERENCIA')" class="border-2 border-gray-200 bg-white text-gray-500 font-bold py-2 rounded-xl transition">💳 Transferencia</button>
+                        </div>
+                    </div>
+
+                    <div id="panel-efectivo" class="mt-2 block space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Monto Recibido</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400 text-lg">$</span>
+                                <input type="number" id="pos-recibido" class="w-full bg-gray-50 border-2 border-gray-200 text-gray-900 rounded-xl focus:ring-pink-500 focus:border-pink-500 block pl-8 p-3 text-2xl font-bold" placeholder="0" oninput="calcularVuelto()">
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center bg-green-50 p-3 rounded-xl border border-green-200 text-green-700">
+                            <span class="font-bold">Vuelto:</span>
+                            <span class="text-2xl font-extrabold">$<span id="pos-vuelto">0</span></span>
+                        </div>
+                    </div>
+
+                    <button onclick="confirmarVenta()" class="mt-auto w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-extrabold py-4 rounded-2xl shadow-lg shadow-pink-300 transform transition-transform active:scale-95 text-lg">
+                        🐱 Confirmar y Cobrar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: Cargar Ropa (Inventario) -->
+        <div id="view-inventory" class="tab-view hidden animate-fade-in-up">
+            <div class="max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-3xl kawaii-shadow border border-pink-100">
+                <h2 class="text-2xl font-extrabold text-pink-600 mb-6 flex items-center gap-2"><i class="fa-solid fa-box-open"></i> Cargar / Actualizar Prenda</h2>
+                
+                <div class="mb-6 flex gap-3">
+                    <div class="relative flex-grow">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-pink-400">
+                            <i class="fa-solid fa-barcode"></i>
+                        </span>
+                        <input type="text" id="inv-codigo" class="w-full bg-pink-50 border-2 border-pink-200 text-gray-900 rounded-2xl focus:ring-pink-500 focus:border-pink-500 block pl-12 p-3 text-lg font-bold" placeholder="Código de Barras..." autocomplete="off">
+                    </div>
+                    <button onclick="openCamera('inventory')" class="bg-pink-400 hover:bg-pink-500 text-white p-3 px-5 rounded-2xl shadow-md transition">
+                        <i class="fa-solid fa-camera text-xl"></i>
+                    </button>
+                    <button onclick="buscarProductoInv()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 p-3 rounded-2xl shadow-sm transition">
+                        <i class="fa-solid fa-search"></i>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Prenda / Descripción</label>
+                        <input type="text" id="inv-nombre" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-pink-500 focus:border-pink-500 p-2.5">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Marca</label>
+                        <input type="text" id="inv-marca" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-pink-500 focus:border-pink-500 p-2.5">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Talla</label>
+                        <input type="text" id="inv-talla" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-pink-500 focus:border-pink-500 p-2.5">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Precio Costo ($)</label>
+                        <input type="number" id="inv-costo" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-pink-500 focus:border-pink-500 p-2.5">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-pink-700 mb-1">Precio Venta ($) 🎀</label>
+                        <input type="number" id="inv-venta" class="w-full bg-pink-50 border-2 border-pink-300 text-gray-900 rounded-xl focus:ring-pink-500 focus:border-pink-500 p-2.5 font-bold">
+                    </div>
+                    <div class="md:col-span-2 p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl flex items-center justify-between">
+                        <div>
+                            <p class="font-bold text-blue-800">Cantidad / Stock Total</p>
+                            <p class="text-xs text-blue-600">Al guardar, este será el stock exacto en tienda.</p>
+                        </div>
+                        <input type="number" id="inv-stock" class="w-24 bg-white border-2 border-blue-300 text-blue-900 rounded-xl text-center p-2 text-xl font-bold" value="1">
+                    </div>
+                </div>
+
+                <button onclick="guardarProducto()" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-extrabold py-4 rounded-2xl shadow-lg shadow-pink-300 transition-transform active:scale-95 text-lg flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-paw"></i> Guardar Prenda
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB 3: Ver Stock -->
+        <div id="view-stock" class="tab-view hidden animate-fade-in-up">
+            <div class="bg-white rounded-3xl kawaii-shadow border border-pink-100 overflow-hidden">
+                <div class="p-6 bg-pink-50/50 border-b border-pink-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <h2 class="text-2xl font-extrabold text-pink-600"><i class="fa-solid fa-clipboard-list"></i> Catálogo</h2>
+                    <div class="relative w-full md:w-72">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-pink-400">
+                            <i class="fa-solid fa-search"></i>
+                        </span>
+                        <input type="text" id="stock-search" onkeyup="buscarTablaStock()" class="w-full bg-white border border-pink-200 text-gray-900 rounded-xl pl-10 p-2" placeholder="Buscar prenda, marca, código...">
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead class="bg-gray-50 text-gray-500 font-bold border-b border-gray-100">
+                            <tr>
+                                <th class="p-4">Código</th>
+                                <th class="p-4">Prenda</th>
+                                <th class="p-4">Marca/Talla</th>
+                                <th class="p-4 text-right">Precio Vta.</th>
+                                <th class="p-4 text-center">Stock</th>
+                                <th class="p-4 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stock-tbody" class="divide-y divide-gray-100">
+                            <!-- Filas generadas por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: Historial de Ventas -->
+        <div id="view-history" class="tab-view hidden animate-fade-in-up">
+            <div class="bg-white rounded-3xl kawaii-shadow border border-pink-100 overflow-hidden">
+                <div class="p-6 bg-pink-50/50 border-b border-pink-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <h2 class="text-2xl font-extrabold text-pink-600"><i class="fa-solid fa-chart-bar"></i> Historial de Ventas</h2>
+                    <button onclick="cargarHistorial()" class="bg-white hover:bg-pink-100 text-pink-600 p-2 rounded-xl shadow-sm transition font-bold border border-pink-200">
+                        <i class="fa-solid fa-rotate-right"></i> Actualizar
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead class="bg-gray-50 text-gray-500 font-bold border-b border-gray-100">
+                            <tr>
+                                <th class="p-4">Fecha</th>
+                                <th class="p-4">Productos</th>
+                                <th class="p-4">Método</th>
+                                <th class="p-4 text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody" class="divide-y divide-gray-100">
+                            <!-- Filas generadas por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- AUDIO (Generado via Web Audio API en JS para no depender de archivos mp3 externos) -->
+
+    <script>
+        // --- SONIDOS VIA WEB AUDIO API ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playBeep() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.02);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.15);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        function playSuccess() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+            osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2); // G5
+            osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.3); // C6
+            
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime + 0.3);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+            
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        // --- NAVEGACIÓN TABS ---
+        let currentTab = 'pos';
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            
+            // PC Tabs
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('active', 'bg-pink-200', 'text-pink-700', 'border-pink-400');
+                el.classList.add('text-gray-500');
+            });
+            let pcTab = document.getElementById(`tab-${tabId}`);
+            if(pcTab) {
+                pcTab.classList.add('active', 'text-pink-700');
+                pcTab.classList.remove('text-gray-500');
+            }
+
+            // Mobile Tabs
+            ['pos', 'inventory', 'stock', 'history'].forEach(t => {
+                let mTab = document.getElementById(`mob-tab-${t}`);
+                if(mTab) {
+                    mTab.classList.remove('text-pink-600');
+                    mTab.classList.add('text-gray-400');
+                }
+            });
+            let mobTab = document.getElementById(`mob-tab-${tabId}`);
+            if(mobTab) {
+                mobTab.classList.remove('text-gray-400');
+                mobTab.classList.add('text-pink-600');
+            }
+
+            currentTab = tabId;
+
+            if(tabId === 'pos') {
+                setTimeout(() => document.getElementById('pos-scan').focus(), 100);
+            } else if(tabId === 'inventory') {
+                setTimeout(() => document.getElementById('inv-codigo').focus(), 100);
+            } else if(tabId === 'stock') {
+                cargarInventarioTabla();
+            } else if(tabId === 'history') {
+                cargarHistorial();
+            }
+        }
+
+        // --- TOAST NOTIFICATIONS ---
+        function showToast(title, msg, isError=false) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-title').innerText = title;
+            document.getElementById('toast-msg').innerText = msg;
+            
+            if(isError) {
+                toast.classList.replace('border-pink-300', 'border-red-400');
+                toast.classList.replace('text-pink-700', 'text-red-700');
+                document.getElementById('toast-icon').innerText = '⚠️';
+            } else {
+                toast.classList.replace('border-red-400', 'border-pink-300');
+                toast.classList.replace('text-red-700', 'text-pink-700');
+                document.getElementById('toast-icon').innerText = '✨';
+            }
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+                setTimeout(() => toast.classList.add('hidden'), 300);
+            }, 3000);
+        }
+
+        // --- SCANNER (HTML5 QR CODE) ---
+        let html5QrcodeScanner = null;
+        let scannerTarget = ''; // 'pos' o 'inventory'
+
+        function openCamera(target) {
+            scannerTarget = target;
+            document.getElementById('camera-modal').classList.remove('hidden');
+            document.getElementById('camera-modal').classList.add('flex');
+            
+            if(!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5Qrcode("qr-reader");
+            }
+            
+            const config = { 
+                fps: 30, 
+                qrbox: { width: 280, height: 150 },
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.CODE_39
+                ]
+            };
+            html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+            .catch(err => {
+                showToast("Error", "No se pudo acceder a la cámara", true);
+                closeCamera();
+            });
+        }
+
+        function closeCamera() {
+            if(html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+                html5QrcodeScanner.stop().then(() => {
+                    document.getElementById('camera-modal').classList.add('hidden');
+                    document.getElementById('camera-modal').classList.remove('flex');
+                });
+            } else {
+                document.getElementById('camera-modal').classList.add('hidden');
+                document.getElementById('camera-modal').classList.remove('flex');
+            }
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            playBeep();
+            closeCamera();
+            if(scannerTarget === 'pos') {
+                let input = document.getElementById('pos-scan');
+                input.value = decodedText;
+                buscarProductoPos(decodedText);
+            } else {
+                let input = document.getElementById('inv-codigo');
+                input.value = decodedText;
+                buscarProductoInv(decodedText);
+            }
+        }
+
+        // --- APARTADO 1: INVENTARIO (CARGAR ROPA) ---
+        // Escucha del Enter en código
+        document.getElementById('inv-codigo').addEventListener('keypress', function(e) {
+            if(e.key === 'Enter') {
+                e.preventDefault();
+                buscarProductoInv();
+            }
+        });
+
+        async function buscarProductoInv(codigoParam = null) {
+            const codigo = codigoParam || document.getElementById('inv-codigo').value.trim();
+            if(!codigo) return;
+
+            try {
+                const res = await fetch(`/api/producto/${codigo}/`);
+                const data = await res.json();
+                
+                if(data.existe) {
+                    playBeep();
+                    document.getElementById('inv-nombre').value = data.nombre;
+                    document.getElementById('inv-marca').value = data.marca;
+                    document.getElementById('inv-talla').value = data.talla;
+                    document.getElementById('inv-costo').value = data.precio_costo;
+                    document.getElementById('inv-venta').value = data.precio_venta;
+                    // Mostramos stock actual, pero lo dejamos listo para modificar/sumar visualmente
+                    document.getElementById('inv-stock').value = data.stock;
+                    showToast("Encontrado", "Se cargaron los datos. Puedes actualizar el stock.", false);
+                    document.getElementById('inv-stock').focus();
+                    document.getElementById('inv-stock').select();
+                } else {
+                    // Nuevo
+                    playBeep();
+                    document.getElementById('inv-nombre').value = '';
+                    document.getElementById('inv-marca').value = '';
+                    document.getElementById('inv-talla').value = '';
+                    document.getElementById('inv-costo').value = '';
+                    document.getElementById('inv-venta').value = '';
+                    document.getElementById('inv-stock').value = '1';
+                    showToast("Nuevo", "Código no registrado. Completa los datos.", false);
+                    document.getElementById('inv-nombre').focus();
+                }
+            } catch (e) {
+                showToast("Error", "Error de conexión", true);
+            }
+        }
+
+        async function guardarProducto() {
+            const codigo = document.getElementById('inv-codigo').value.trim();
+            if(!codigo) { showToast("Error", "Escanea o ingresa un código", true); return; }
+            
+            const payload = {
+                codigo_barras: codigo,
+                nombre: document.getElementById('inv-nombre').value.trim(),
+                marca: document.getElementById('inv-marca').value.trim(),
+                talla: document.getElementById('inv-talla').value.trim(),
+                precio_costo: parseInt(document.getElementById('inv-costo').value) || 0,
+                precio_venta: parseInt(document.getElementById('inv-venta').value) || 0,
+                stock: parseInt(document.getElementById('inv-stock').value) || 0,
+            };
+
+            if(!payload.nombre) { showToast("Atención", "El nombre es obligatorio", true); return; }
+
+            try {
+                const res = await fetch('/api/producto/guardar/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if(data.success) {
+                    playSuccess();
+                    showToast("¡Listo! 🐾", data.mensaje);
+                    // Limpiar formulario y enfocar código
+                    ['inv-codigo','inv-nombre','inv-marca','inv-talla','inv-costo','inv-venta','inv-stock'].forEach(id => {
+                        if(id==='inv-stock') document.getElementById(id).value = '1';
+                        else document.getElementById(id).value = '';
+                    });
+                    document.getElementById('inv-codigo').focus();
+                } else {
+                    showToast("Error", data.error, true);
+                }
+            } catch (e) {
+                showToast("Error", "Error de conexión", true);
+            }
+        }
+
+        // --- APARTADO 2: POS (VENTAS) ---
+        let carrito = [];
+        let metodoPago = 'EFECTIVO';
+
+        document.getElementById('pos-scan').addEventListener('keypress', function(e) {
+            if(e.key === 'Enter') {
+                e.preventDefault();
+                buscarProductoPos(this.value.trim());
+            }
+        });
+
+        async function buscarProductoPos(codigo) {
+            if(!codigo) return;
+            try {
+                const res = await fetch(`/api/producto/${codigo}/`);
+                const data = await res.json();
+                
+                if(data.existe) {
+                    playBeep();
+                    agregarAlCarrito(data);
+                    document.getElementById('pos-scan').value = '';
+                } else {
+                    showToast("Atención", "Producto no encontrado", true);
+                    document.getElementById('pos-scan').select();
+                }
+            } catch (e) {
+                showToast("Error", "Error al buscar", true);
+            }
+        }
+
+        function agregarAlCarrito(prod) {
+            const existente = carrito.find(item => item.id === prod.id);
+            if(existente) {
+                existente.cantidad += 1;
+            } else {
+                carrito.push({...prod, cantidad: 1});
+            }
+            renderCarrito();
+        }
+
+        function actCantidad(id, delta) {
+            const item = carrito.find(i => i.id === id);
+            if(item) {
+                item.cantidad += delta;
+                if(item.cantidad <= 0) {
+                    carrito = carrito.filter(i => i.id !== id);
+                }
+                renderCarrito();
+            }
+        }
+
+        function removerItem(id) {
+            carrito = carrito.filter(i => i.id !== id);
+            renderCarrito();
+        }
+
+        function limpiarCarrito() {
+            carrito = [];
+            document.getElementById('pos-recibido').value = '';
+            renderCarrito();
+        }
+
+        function renderCarrito() {
+            const tbody = document.getElementById('carrito-body');
+            tbody.innerHTML = '';
+            let total = 0;
+
+            if(carrito.length === 0) {
+                tbody.innerHTML = '<tr id="empty-cart-msg"><td colspan="4" class="text-center py-10 text-gray-400 italic">No hay prendas en el carrito 🐾</td></tr>';
+            } else {
+                carrito.forEach(item => {
+                    const subtotal = item.cantidad * item.precio_venta;
+                    total += subtotal;
+                    const tr = document.createElement('tr');
+                    tr.className = "border-b border-gray-50 hover:bg-pink-50 transition";
+                    tr.innerHTML = `
+                        <td class="p-2 py-3">
+                            <p class="font-bold text-gray-800">${item.nombre}</p>
+                            <p class="text-xs text-gray-500">${item.marca || ''} ${item.talla ? '- Talla: '+item.talla : ''}</p>
+                        </td>
+                        <td class="p-2 text-center">
+                            <div class="flex items-center justify-center gap-1 bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                <button onclick="actCantidad(${item.id}, -1)" class="px-2 py-1 bg-gray-50 hover:bg-pink-100 text-gray-600">-</button>
+                                <span class="font-bold text-sm w-6">${item.cantidad}</span>
+                                <button onclick="actCantidad(${item.id}, 1)" class="px-2 py-1 bg-gray-50 hover:bg-pink-100 text-gray-600">+</button>
+                            </div>
+                        </td>
+                        <td class="p-2 text-right font-bold text-gray-700">$${subtotal}</td>
+                        <td class="p-2 text-center">
+                            <button onclick="removerItem(${item.id})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+            
+            document.getElementById('pos-total').innerText = total;
+            calcularVuelto();
+        }
+
+        function setMetodoPago(metodo) {
+            metodoPago = metodo;
+            const btnEf = document.getElementById('btn-efectivo');
+            const btnTr = document.getElementById('btn-transferencia');
+            const panelEf = document.getElementById('panel-efectivo');
+
+            if(metodo === 'EFECTIVO') {
+                btnEf.classList.replace('border-gray-200', 'border-pink-400');
+                btnEf.classList.replace('bg-white', 'bg-pink-50');
+                btnEf.classList.replace('text-gray-500', 'text-pink-700');
+                
+                btnTr.classList.replace('border-pink-400', 'border-gray-200');
+                btnTr.classList.replace('bg-pink-50', 'bg-white');
+                btnTr.classList.replace('text-pink-700', 'text-gray-500');
+                
+                panelEf.classList.remove('hidden');
+                document.getElementById('pos-recibido').focus();
+            } else {
+                btnTr.classList.replace('border-gray-200', 'border-pink-400');
+                btnTr.classList.replace('bg-white', 'bg-pink-50');
+                btnTr.classList.replace('text-gray-500', 'text-pink-700');
+                
+                btnEf.classList.replace('border-pink-400', 'border-gray-200');
+                btnEf.classList.replace('bg-pink-50', 'bg-white');
+                btnEf.classList.replace('text-pink-700', 'text-gray-500');
+                
+                panelEf.classList.add('hidden');
+            }
+            calcularVuelto();
+        }
+
+        function calcularVuelto() {
+            if(metodoPago !== 'EFECTIVO') return;
+            const totalStr = document.getElementById('pos-total').innerText;
+            const total = parseInt(totalStr) || 0;
+            const recibido = parseInt(document.getElementById('pos-recibido').value) || 0;
+            const vueltoSpan = document.getElementById('pos-vuelto');
+            
+            if(recibido >= total && total > 0) {
+                vueltoSpan.innerText = (recibido - total);
+                vueltoSpan.parentElement.parentElement.classList.replace('text-gray-400', 'text-green-700');
+                vueltoSpan.parentElement.parentElement.classList.replace('bg-gray-50', 'bg-green-50');
+                vueltoSpan.parentElement.parentElement.classList.replace('border-gray-200', 'border-green-200');
+            } else {
+                vueltoSpan.innerText = '0';
+                vueltoSpan.parentElement.parentElement.classList.replace('text-green-700', 'text-gray-400');
+                vueltoSpan.parentElement.parentElement.classList.replace('bg-green-50', 'bg-gray-50');
+                vueltoSpan.parentElement.parentElement.classList.replace('border-green-200', 'border-gray-200');
+            }
+        }
+
+        async function confirmarVenta() {
+            if(carrito.length === 0) { showToast("Atención", "El carrito está vacío", true); return; }
+            const total = parseInt(document.getElementById('pos-total').innerText) || 0;
+            const recibido = parseInt(document.getElementById('pos-recibido').value) || 0;
+
+            if(metodoPago === 'EFECTIVO' && recibido < total) {
+                showToast("Error", "Monto recibido insuficiente", true);
+                document.getElementById('pos-recibido').focus();
+                return;
+            }
+
+            const payload = {
+                carrito: carrito,
+                metodo_pago: metodoPago,
+                monto_recibido: recibido
+            };
+
+            try {
+                const res = await fetch('/api/venta/procesar/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                
+                if(data.success) {
+                    playSuccess();
+                    showToast("¡Venta Exitosa! 🐱", `Vuelto: $${data.vuelto}`);
+                    limpiarCarrito();
+                    document.getElementById('pos-scan').focus();
+                } else {
+                    showToast("Error", data.error, true);
+                }
+            } catch (e) {
+                showToast("Error", "Error de red al procesar venta", true);
+            }
+        }
+
+        // --- APARTADO 3: STOCK ---
+        async function cargarInventarioTabla() {
+            const query = document.getElementById('stock-search').value.trim();
+            try {
+                const res = await fetch(`/api/inventario/?q=${query}`);
+                const data = await res.json();
+                const tbody = document.getElementById('stock-tbody');
+                tbody.innerHTML = '';
+                
+                if(data.productos.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-400">No se encontraron prendas.</td></tr>';
+                    return;
+                }
+
+                data.productos.forEach(p => {
+                    let stockBadge = '';
+                    if(p.stock <= 0) stockBadge = `<span class="bg-red-100 text-red-700 px-2 py-1 rounded-lg text-xs font-bold border border-red-200"><i class="fa-solid fa-triangle-exclamation"></i> Agotado (0)</span>`;
+                    else if(p.stock <= 2) stockBadge = `<span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-lg text-xs font-bold border border-yellow-200">Últimos (${p.stock})</span>`;
+                    else stockBadge = `<span class="bg-green-100 text-green-700 px-2 py-1 rounded-lg text-xs font-bold border border-green-200">Disp (${p.stock})</span>`;
+
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-pink-50 transition";
+                    tr.innerHTML = `
+                        <td class="p-4 font-mono text-xs text-gray-500">${p.codigo_barras}</td>
+                        <td class="p-4 font-bold text-gray-800">${p.nombre}</td>
+                        <td class="p-4 text-gray-600">${p.marca || '-'} / <span class="font-bold">${p.talla || '-'}</span></td>
+                        <td class="p-4 text-right font-bold text-pink-600">$${p.precio_venta}</td>
+                        <td class="p-4 text-center">${stockBadge}</td>
+                        <td class="p-4 text-center">
+                            <button onclick="eliminarProducto(${p.id})" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 p-2 rounded-lg transition border border-red-100" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error("Error al cargar inventario", e);
+            }
+        }
+
+        let searchTimeout = null;
+        function buscarTablaStock() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                cargarInventarioTabla();
+            }, 300);
+        }
+
+        async function eliminarProducto(id) {
+            if(!confirm("¿Estás seguro de que deseas eliminar este producto del catálogo? (El historial de ventas se mantendrá intacto)")) return;
+            try {
+                const res = await fetch(`/api/producto/eliminar/${id}/`, { method: 'POST' });
+                const data = await res.json();
+                if(data.success) {
+                    showToast("Eliminado", data.mensaje);
+                    cargarInventarioTabla();
+                } else {
+                    showToast("Error", data.error, true);
+                }
+            } catch(e) {
+                showToast("Error", "No se pudo eliminar", true);
+            }
+        }
+
+        async function cargarHistorial() {
+            try {
+                const res = await fetch('/api/ventas/historial/');
+                const data = await res.json();
+                const tbody = document.getElementById('history-tbody');
+                tbody.innerHTML = '';
+                
+                if(data.ventas.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-400">No hay ventas registradas aún.</td></tr>';
+                    return;
+                }
+
+                data.ventas.forEach(v => {
+                    let detallesHtml = v.detalles.map(d => `<div class="text-xs text-gray-600"><span class="font-bold text-gray-800">${d.cantidad}x</span> ${d.producto_nombre} <span class="text-pink-600 font-bold">($${d.subtotal})</span></div>`).join('');
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-pink-50 transition border-b border-gray-50";
+                    tr.innerHTML = `
+                        <td class="p-4 text-gray-500 font-mono text-xs">${v.fecha}</td>
+                        <td class="p-4">${detallesHtml}</td>
+                        <td class="p-4"><span class="bg-pink-50 text-pink-700 px-2 py-1 rounded-lg text-xs font-bold border border-pink-200">${v.metodo_pago}</span></td>
+                        <td class="p-4 text-right font-extrabold text-green-600 text-lg">$${v.total}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error("Error al cargar historial", e);
+            }
+        }
+
+        // Iniciar en tab POS
+        switchTab('pos');
+    </script>
+</body>
+</html>
