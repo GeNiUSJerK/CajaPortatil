@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>POS Kawaii 🐱🎀</title>
+    <!-- Favicon Kawaii -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐾</text></svg>">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- html5-qrcode CDN -->
@@ -163,6 +165,14 @@
                         <div class="grid grid-cols-2 gap-2">
                             <button id="btn-efectivo" onclick="setMetodoPago('EFECTIVO')" class="border-2 border-pink-400 bg-pink-50 text-pink-700 font-bold py-2 rounded-xl transition">💵 Efectivo</button>
                             <button id="btn-transferencia" onclick="setMetodoPago('TRANSFERENCIA')" class="border-2 border-gray-200 bg-white text-gray-500 font-bold py-2 rounded-xl transition">💳 Transferencia</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-yellow-50 p-3 rounded-2xl border border-yellow-200 mt-2">
+                        <label class="block text-sm font-bold text-yellow-700 mb-1">😾 Precio Regateado</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-yellow-600 text-lg">$</span>
+                            <input type="number" id="pos-regateo" class="w-full bg-white border-2 border-yellow-300 text-yellow-900 rounded-xl focus:ring-yellow-500 focus:border-yellow-500 block pl-8 p-3 text-xl font-bold" placeholder="Dejar vacío si no aplica" oninput="calcularVuelto()">
                         </div>
                     </div>
 
@@ -621,6 +631,7 @@
         function limpiarCarrito() {
             carrito = [];
             document.getElementById('pos-recibido').value = '';
+            document.getElementById('pos-regateo').value = '';
             renderCarrito();
         }
 
@@ -696,7 +707,10 @@
         function calcularVuelto() {
             if(metodoPago !== 'EFECTIVO') return;
             const totalStr = document.getElementById('pos-total').innerText;
-            const total = parseInt(totalStr) || 0;
+            const totalOriginal = parseInt(totalStr) || 0;
+            const regateo = parseInt(document.getElementById('pos-regateo').value);
+            const total = (!isNaN(regateo) && regateo > 0) ? regateo : totalOriginal;
+
             const recibido = parseInt(document.getElementById('pos-recibido').value) || 0;
             const vueltoSpan = document.getElementById('pos-vuelto');
             
@@ -715,7 +729,11 @@
 
         async function confirmarVenta() {
             if(carrito.length === 0) { showToast("Atención", "El carrito está vacío", true); return; }
-            const total = parseInt(document.getElementById('pos-total').innerText) || 0;
+            const totalStr = document.getElementById('pos-total').innerText;
+            const totalOriginal = parseInt(totalStr) || 0;
+            const regateo = parseInt(document.getElementById('pos-regateo').value);
+            const total = (!isNaN(regateo) && regateo > 0) ? regateo : totalOriginal;
+
             const recibido = parseInt(document.getElementById('pos-recibido').value) || 0;
 
             if(metodoPago === 'EFECTIVO' && recibido < total) {
@@ -727,7 +745,8 @@
             const payload = {
                 carrito: carrito,
                 metodo_pago: metodoPago,
-                monto_recibido: recibido
+                monto_recibido: recibido,
+                total_regateado: (!isNaN(regateo) && regateo > 0) ? regateo : null
             };
 
             try {
@@ -822,18 +841,35 @@
                 tbody.innerHTML = '';
                 
                 if(data.ventas.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-400">No hay ventas registradas aún.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-400">No hay ventas registradas aún. 😿</td></tr>';
                     return;
                 }
 
+                let currentDate = "";
+                const catEmojis = ['🐱', '🐈', '🐾', '😸', '😻'];
+
                 data.ventas.forEach(v => {
+                    const parts = v.fecha.split(' ');
+                    const datePart = parts[0];
+                    const timePart = parts[1] || "";
+
+                    if (datePart !== currentDate) {
+                        currentDate = datePart;
+                        const randomCat = catEmojis[Math.floor(Math.random() * catEmojis.length)];
+                        const randomCat2 = catEmojis[Math.floor(Math.random() * catEmojis.length)];
+                        const dateRow = document.createElement('tr');
+                        dateRow.className = "bg-pink-100/50";
+                        dateRow.innerHTML = `<td colspan="4" class="p-3 text-center text-pink-800 font-extrabold border-y border-pink-200 shadow-sm">${randomCat} Ventas del día: ${datePart} ${randomCat2}</td>`;
+                        tbody.appendChild(dateRow);
+                    }
+
                     let detallesHtml = v.detalles.map(d => `<div class="text-xs text-gray-600"><span class="font-bold text-gray-800">${d.cantidad}x</span> ${d.producto_nombre} <span class="text-pink-600 font-bold">($${d.subtotal})</span></div>`).join('');
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-pink-50 transition border-b border-gray-50";
                     tr.innerHTML = `
-                        <td class="p-4 text-gray-500 font-mono text-xs">${v.fecha}</td>
+                        <td class="p-4 text-gray-500 font-mono text-xs text-center"><i class="fa-regular fa-clock mr-1"></i>${timePart}</td>
                         <td class="p-4">${detallesHtml}</td>
-                        <td class="p-4"><span class="bg-pink-50 text-pink-700 px-2 py-1 rounded-lg text-xs font-bold border border-pink-200">${v.metodo_pago}</span></td>
+                        <td class="p-4 text-center"><span class="bg-pink-50 text-pink-700 px-2 py-1 rounded-lg text-xs font-bold border border-pink-200">${v.metodo_pago}</span></td>
                         <td class="p-4 text-right font-extrabold text-green-600 text-lg">$${v.total}</td>
                     `;
                     tbody.appendChild(tr);

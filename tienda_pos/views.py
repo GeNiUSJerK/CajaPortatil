@@ -77,6 +77,7 @@ def api_procesar_venta(request):
             carrito = data.get('carrito', [])
             metodo_pago = data.get('metodo_pago', 'EFECTIVO')
             monto_recibido = int(data.get('monto_recibido', 0))
+            total_regateado = data.get('total_regateado')
             
             if not carrito:
                 return JsonResponse({'success': False, 'error': 'El carrito está vacío'}, status=400)
@@ -106,6 +107,10 @@ def api_procesar_venta(request):
                         'precio_unitario': producto.precio_venta,
                         'subtotal': subtotal
                     })
+
+                # Si hay precio regateado, se sobreescribe el total calculado
+                if total_regateado is not None and int(total_regateado) > 0:
+                    total_venta = int(total_regateado)
 
                 vuelto = 0
                 if metodo_pago == 'EFECTIVO':
