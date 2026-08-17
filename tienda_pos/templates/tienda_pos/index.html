@@ -845,34 +845,62 @@
                     return;
                 }
 
-                let currentDate = "";
                 const catEmojis = ['🐱', '🐈', '🐾', '😸', '😻'];
+                const dias = [];
+                let diaActual = null;
 
+                // Agrupar por día y calcular totales
                 data.ventas.forEach(v => {
-                    const parts = v.fecha.split(' ');
-                    const datePart = parts[0];
-                    const timePart = parts[1] || "";
-
-                    if (datePart !== currentDate) {
-                        currentDate = datePart;
-                        const randomCat = catEmojis[Math.floor(Math.random() * catEmojis.length)];
-                        const randomCat2 = catEmojis[Math.floor(Math.random() * catEmojis.length)];
-                        const dateRow = document.createElement('tr');
-                        dateRow.className = "bg-pink-100/50";
-                        dateRow.innerHTML = `<td colspan="4" class="p-3 text-center text-pink-800 font-extrabold border-y border-pink-200 shadow-sm">${randomCat} Ventas del día: ${datePart} ${randomCat2}</td>`;
-                        tbody.appendChild(dateRow);
+                    const datePart = v.fecha.split(' ')[0];
+                    if (!diaActual || diaActual.fecha !== datePart) {
+                        diaActual = {
+                            fecha: datePart,
+                            totalDia: 0,
+                            gananciaDia: 0,
+                            ventas: []
+                        };
+                        dias.push(diaActual);
                     }
+                    diaActual.ventas.push(v);
+                    diaActual.totalDia += v.total;
+                    diaActual.gananciaDia += v.ganancia_total;
+                });
 
-                    let detallesHtml = v.detalles.map(d => `<div class="text-xs text-gray-600"><span class="font-bold text-gray-800">${d.cantidad}x</span> ${d.producto_nombre} <span class="text-pink-600 font-bold">($${d.subtotal})</span></div>`).join('');
-                    const tr = document.createElement('tr');
-                    tr.className = "hover:bg-pink-50 transition border-b border-gray-50";
-                    tr.innerHTML = `
-                        <td class="p-4 text-gray-500 font-mono text-xs text-center"><i class="fa-regular fa-clock mr-1"></i>${timePart}</td>
-                        <td class="p-4">${detallesHtml}</td>
-                        <td class="p-4 text-center"><span class="bg-pink-50 text-pink-700 px-2 py-1 rounded-lg text-xs font-bold border border-pink-200">${v.metodo_pago}</span></td>
-                        <td class="p-4 text-right font-extrabold text-green-600 text-lg">$${v.total}</td>
-                    `;
-                    tbody.appendChild(tr);
+                // Renderizar
+                dias.forEach(dia => {
+                    const randomCat = catEmojis[Math.floor(Math.random() * catEmojis.length)];
+                    const randomCat2 = catEmojis[Math.floor(Math.random() * catEmojis.length)];
+                    
+                    const dateRow = document.createElement('tr');
+                    dateRow.className = "bg-pink-100/50";
+                    dateRow.innerHTML = `
+                        <td colspan="4" class="p-3 border-y border-pink-200 shadow-sm">
+                            <div class="flex flex-col sm:flex-row justify-between items-center px-4">
+                                <span class="text-pink-800 font-extrabold text-lg">${randomCat} Ventas del día: ${dia.fecha} ${randomCat2}</span>
+                                <div class="flex flex-col sm:text-right mt-2 sm:mt-0 bg-white px-3 py-1 rounded-xl shadow-sm border border-pink-200">
+                                    <span class="font-black text-gray-800 text-sm">Total Ventas: <span class="text-pink-600">$${dia.totalDia}</span></span>
+                                    <span class="text-xs font-bold text-green-600">Ganancia: +$${dia.gananciaDia}</span>
+                                </div>
+                            </div>
+                        </td>`;
+                    tbody.appendChild(dateRow);
+
+                    dia.ventas.forEach(v => {
+                        const timePart = v.fecha.split(' ')[1] || "";
+                        let detallesHtml = v.detalles.map(d => `<div class="text-xs text-gray-600"><span class="font-bold text-gray-800">${d.cantidad}x</span> ${d.producto_nombre} <span class="text-pink-600 font-bold">($${d.subtotal})</span> <span class="text-green-500 font-bold ml-1" title="Ganancia">(+$${d.ganancia})</span></div>`).join('');
+                        const tr = document.createElement('tr');
+                        tr.className = "hover:bg-pink-50 transition border-b border-gray-50";
+                        tr.innerHTML = `
+                            <td class="p-4 text-gray-500 font-mono text-xs text-center"><i class="fa-regular fa-clock mr-1"></i>${timePart}</td>
+                            <td class="p-4">${detallesHtml}</td>
+                            <td class="p-4 text-center"><span class="bg-pink-50 text-pink-700 px-2 py-1 rounded-lg text-xs font-bold border border-pink-200">${v.metodo_pago}</span></td>
+                            <td class="p-4 text-right font-extrabold text-green-600 text-lg">
+                                $${v.total}
+                                <div class="text-xs text-green-500 mt-1 font-bold">+ $${v.ganancia_total} ganancia</div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
                 });
             } catch (e) {
                 console.error("Error al cargar historial", e);

@@ -190,17 +190,23 @@ def api_historial_ventas(request):
     data = []
     for v in ventas:
         detalles = []
+        ganancia_total = 0
         for d in v.detalles.all():
+            costo_total = d.producto.precio_costo * d.cantidad if d.producto else 0
+            ganancia = d.subtotal - costo_total
+            ganancia_total += ganancia
             detalles.append({
-                'producto_nombre': d.producto.nombre,
+                'producto_nombre': d.producto.nombre if d.producto else 'Producto Desconocido',
                 'cantidad': d.cantidad,
                 'precio_unitario': d.precio_unitario,
-                'subtotal': d.subtotal
+                'subtotal': d.subtotal,
+                'ganancia': ganancia
             })
         data.append({
             'id': v.id,
             'fecha': v.fecha.strftime('%d/%m/%Y %H:%M'),
             'total': v.total,
+            'ganancia_total': ganancia_total,
             'metodo_pago': v.get_metodo_pago_display(),
             'monto_recibido': v.monto_recibido,
             'vuelto': v.vuelto,
