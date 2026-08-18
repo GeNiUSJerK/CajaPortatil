@@ -12,7 +12,7 @@ def index(request):
 
 def api_buscar_producto(request, codigo):
     try:
-        producto = Producto.objects.get(codigo_barras=codigo, activo=True)
+        producto = Producto.objects.get(codigo_barras=codigo)
         data = {
             'existe': True,
             'id': producto.id,
@@ -61,6 +61,7 @@ def api_guardar_producto(request):
                     # Vamos a sobrescribir si el usuario edita o sumar. 
                     # Haremos que el frontend mande el stock absoluto que debe quedar.
                     producto.stock = data['stock']
+                
                 producto.save()
 
             return JsonResponse({'success': True, 'producto_id': producto.id, 'mensaje': 'Prenda guardada exitosamente 🐾'})
@@ -103,6 +104,8 @@ def api_procesar_venta(request):
                     
                     detalles_a_crear.append({
                         'producto': producto,
+                        'producto_nombre': producto.nombre,
+                        'precio_costo_historico': producto.precio_costo,
                         'cantidad': cantidad,
                         'precio_unitario': producto.precio_venta,
                         'subtotal': subtotal
@@ -131,6 +134,8 @@ def api_procesar_venta(request):
                     DetalleVenta.objects.create(
                         venta=venta,
                         producto=detalle['producto'],
+                        producto_nombre=detalle['producto_nombre'],
+                        precio_costo_historico=detalle['precio_costo_historico'],
                         cantidad=detalle['cantidad'],
                         precio_unitario=detalle['precio_unitario'],
                         subtotal=detalle['subtotal']
@@ -150,7 +155,7 @@ def api_procesar_venta(request):
 
 def api_listar_inventario(request):
     query = request.GET.get('q', '')
-    productos = Producto.objects.filter(activo=True).order_by('-actualizado_en')
+    productos = Producto.objects.all().order_by('-actualizado_en')
     
     if query:
         productos = productos.filter(nombre__icontains=query) | \
@@ -176,9 +181,8 @@ def api_eliminar_producto(request, id):
     if request.method == 'POST':
         try:
             producto = Producto.objects.get(id=id)
-            producto.activo = False
-            producto.save()
-            return JsonResponse({'success': True, 'mensaje': 'Producto eliminado correctamente'})
+            producto.delete()
+            return JsonResponse({'success': True, 'mensaje': 'Producto eliminado completamente'})
         except Producto.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Producto no encontrado'}, status=404)
         except Exception as e:
@@ -192,11 +196,15 @@ def api_historial_ventas(request):
         detalles = []
         ganancia_total = 0
         for d in v.detalles.all():
-            costo_total = d.producto.precio_costo * d.cantidad if d.producto else 0
+            costo = d.precio_costo_historico if d.precio_costo_historico is not None else (d.producto.precio_costo if d.producto else 0)
+            costo_total = costo * d.cantidad
             ganancia = d.subtotal - costo_total
             ganancia_total += ganancia
+            
+            nombre = d.producto_nombre if d.producto_nombre else (d.producto.nombre if d.producto else 'Producto Eliminado')
+            
             detalles.append({
-                'producto_nombre': d.producto.nombre if d.producto else 'Producto Desconocido',
+                'producto_nombre': nombre,
                 'cantidad': d.cantidad,
                 'precio_unitario': d.precio_unitario,
                 'subtotal': d.subtotal,

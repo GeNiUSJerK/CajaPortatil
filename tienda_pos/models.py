@@ -31,7 +31,9 @@ class Venta(models.Model):
 
 class DetalleVenta(models.Model):
     venta = models.ForeignKey(Venta, on_delete=models.CASCADE, related_name='detalles')
-    producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
+    producto = models.ForeignKey(Producto, on_delete=models.SET_NULL, null=True, blank=True)
+    producto_nombre = models.CharField(max_length=150, blank=True, null=True)
+    precio_costo_historico = models.PositiveIntegerField(blank=True, null=True)
     cantidad = models.PositiveIntegerField(default=1)
     precio_unitario = models.PositiveIntegerField()
     subtotal = models.PositiveIntegerField()
