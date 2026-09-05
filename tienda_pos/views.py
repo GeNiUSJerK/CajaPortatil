@@ -5,7 +5,7 @@ from django.http import JsonResponse, FileResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
 from django.conf import settings
-from .models import Producto, Venta, DetalleVenta
+from .models import Producto, Venta, DetalleVenta, Categoria
 
 def index(request):
     return render(request, 'tienda_pos/index.html')
@@ -19,6 +19,7 @@ def api_buscar_producto(request, codigo):
             'codigo_barras': producto.codigo_barras,
             'nombre': producto.nombre,
             'marca': producto.marca,
+            'categoria_id': producto.categoria_id,
             'talla': producto.talla,
             'precio_costo': producto.precio_costo,
             'precio_venta': producto.precio_venta,
@@ -32,37 +33,51 @@ def api_buscar_producto(request, codigo):
 def api_guardar_producto(request):
     if request.method == 'POST':
         try:
-            data = json.loads(request.body)
+            is_json = request.content_type == 'application/json'
+            if is_json:
+                data = json.loads(request.body)
+            else:
+                data = request.POST
+
             codigo = data.get('codigo_barras')
+            categoria_id = data.get('categoria_id')
+            categoria = None
+            if categoria_id:
+                try:
+                    categoria = Categoria.objects.get(id=categoria_id)
+                except Categoria.DoesNotExist:
+                    pass
             
+            precio_costo = int(data.get('precio_costo', 0)) if data.get('precio_costo') else 0
+            precio_venta = int(data.get('precio_venta', 0)) if data.get('precio_venta') else 0
+            stock = int(data.get('stock', 0)) if data.get('stock') else 0
+
             producto, created = Producto.objects.get_or_create(
                 codigo_barras=codigo,
                 defaults={
                     'nombre': data.get('nombre', ''),
+                    'categoria': categoria,
                     'marca': data.get('marca', ''),
                     'talla': data.get('talla', ''),
-                    'precio_costo': data.get('precio_costo', 0),
-                    'precio_venta': data.get('precio_venta', 0),
-                    'stock': data.get('stock', 0)
+                    'precio_costo': precio_costo,
+                    'precio_venta': precio_venta,
+                    'stock': stock
                 }
             )
             
             if not created:
-                # Actualizar existente
                 if 'nombre' in data: producto.nombre = data['nombre']
-                if 'marca' in data: producto.marca = data['marca']
-                if 'talla' in data: producto.talla = data['talla']
-                if 'precio_costo' in data: producto.precio_costo = data['precio_costo']
-                if 'precio_venta' in data: producto.precio_venta = data['precio_venta']
-                if 'stock' in data: 
-                    # Se suma al stock actual, o se puede reescribir dependiendo del flujo. 
-                    # El prompt dice "Sumar Stock", así que lo sumamos.
-                    # Asumiremos que el frontend envía la cantidad a AÑADIR o el nuevo total. 
-                    # Vamos a sobrescribir si el usuario edita o sumar. 
-                    # Haremos que el frontend mande el stock absoluto que debe quedar.
-                    producto.stock = data['stock']
+                if 'categoria_id' in data: producto.categoria = categoria
+                if 'marca' in data: producto.marca = data.get('marca', '')
+                if 'talla' in data: producto.talla = data.get('talla', '')
+                if 'precio_costo' in data: producto.precio_costo = precio_costo
+                if 'precio_venta' in data: producto.precio_venta = precio_venta
+                if 'stock' in data: producto.stock = stock
                 
-                producto.save()
+            if not is_json and 'imagen' in request.FILES:
+                producto.imagen = request.FILES['imagen']
+                
+            producto.save()
 
             return JsonResponse({'success': True, 'producto_id': producto.id, 'mensaje': 'Prenda guardada exitosamente 🐾'})
         except Exception as e:
@@ -155,8 +170,12 @@ def api_procesar_venta(request):
 
 def api_listar_inventario(request):
     query = request.GET.get('q', '')
+    categoria_id = request.GET.get('categoria', '')
     productos = Producto.objects.all().order_by('-actualizado_en')
     
+    if categoria_id:
+        productos = productos.filter(categoria_id=categoria_id)
+
     if query:
         productos = productos.filter(nombre__icontains=query) | \
                     productos.filter(marca__icontains=query) | \
@@ -169,12 +188,13 @@ def api_listar_inventario(request):
             'codigo_barras': p.codigo_barras,
             'nombre': p.nombre,
             'marca': p.marca,
-            'talla': p.talla,
-            'precio_costo': p.precio_costo,
+            'categoria_nombre': p.categoria.nombre if p.categoria else None,
             'precio_venta': p.precio_venta,
             'stock': p.stock,
+            'imagen_url': p.imagen.url if p.imagen else None
         })
-    return JsonResponse({'productos': data})
+    
+    return JsonResponse({'success': True, 'productos': data})
 
 @csrf_exempt
 def api_eliminar_producto(request, id):
@@ -202,9 +222,13 @@ def api_historial_ventas(request):
             ganancia_total += ganancia
             
             nombre = d.producto_nombre if d.producto_nombre else (d.producto.nombre if d.producto else 'Producto Eliminado')
+            categoria = 'Sin Categoría'
+            if d.producto and d.producto.categoria:
+                categoria = d.producto.categoria.nombre
             
             detalles.append({
                 'producto_nombre': nombre,
+                'categoria_nombre': categoria,
                 'cantidad': d.cantidad,
                 'precio_unitario': d.precio_unitario,
                 'subtotal': d.subtotal,
@@ -223,6 +247,25 @@ def api_historial_ventas(request):
     return JsonResponse({'ventas': data})
 
 
+def api_listar_categorias(request):
+    categorias = Categoria.objects.all().order_by('nombre')
+    data = [{'id': c.id, 'nombre': c.nombre} for c in categorias]
+    return JsonResponse({'categorias': data})
+
+@csrf_exempt
+def api_guardar_categoria(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            nombre = data.get('nombre', '').strip()
+            if not nombre:
+                return JsonResponse({'success': False, 'error': 'El nombre de la categoría es requerido'})
+            
+            categoria, created = Categoria.objects.get_or_create(nombre=nombre)
+            return JsonResponse({'success': True, 'categoria_id': categoria.id, 'nombre': categoria.nombre, 'mensaje': 'Categoría guardada'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    return JsonResponse({'success': False, 'error': 'Invalid method'}, status=405)
 def descargar_bd(request):
     db_path = os.path.join(settings.BASE_DIR, 'db.sqlite3')
     if os.path.exists(db_path):
