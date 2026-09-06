@@ -5,6 +5,7 @@ from django.http import JsonResponse, FileResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
 from django.conf import settings
+from django.utils.timezone import localtime
 from .models import Producto, Venta, DetalleVenta, Categoria
 
 def index(request):
@@ -236,7 +237,7 @@ def api_historial_ventas(request):
             })
         data.append({
             'id': v.id,
-            'fecha': v.fecha.strftime('%d/%m/%Y %H:%M'),
+            'fecha': localtime(v.fecha).strftime('%d/%m/%Y %H:%M'),
             'total': v.total,
             'ganancia_total': ganancia_total,
             'metodo_pago': v.get_metodo_pago_display(),
